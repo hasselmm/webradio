@@ -1,0 +1,8 @@
+#!/bin/sh
+
+path=$0
+
+while [ -L "$path" ]; do path=`readlink $0`; done
+
+PYTHONPATH=`dirname $path`/.. \
+exec python -m webradio.service "$0" "$@"

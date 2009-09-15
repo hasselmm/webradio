@@ -1,0 +1,5 @@
+*.pyc
+.*.sw?
+MANIFEST
+build
+dist
