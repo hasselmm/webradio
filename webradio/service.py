@@ -8,6 +8,7 @@ from httplib2           import Http
 from threading          import Thread
 from urlparse           import urljoin
 from webradio.model     import Channel, Station, Stream
+from webradio.player    import Player
 from webradio.xdg       import get_cache_filename, get_config_filename
 from StringIO           import StringIO
 
@@ -43,7 +44,7 @@ class Service(Object):
             return True
 
         self.__data_stage = 0
-        self.__player = gst.element_factory_make('playbin')
+        self.__player = Player()
         self.__player.get_bus().add_watch(player_message_cb)
         self.__httplib = Http(cache=get_cache_filename())
         self.__stations = list()
@@ -176,7 +177,7 @@ class Service(Object):
     @method(dbus_interface=interface, in_signature='s', out_signature='')
     def Play(self, uri):
         self.__player.set_state(gst.STATE_NULL)
-        self.__player.set_property('uri', uri)
+        self.__player.uri = uri
         self.__player.set_state(gst.STATE_PLAYING)
 
     @method(dbus_interface=interface, in_signature='', out_signature='')
@@ -198,7 +199,7 @@ class Service(Object):
     @method(dbus_interface=interface, in_signature='', out_signature='bs')
     def GetState(self):
         playing = (gst.STATE_PLAYING == self.__player.get_state()[1])
-        channel_uri = self.__player.get_property('uri') or ''
+        channel_uri = self.__player.uri or ''
         return playing, channel_uri
 
     @signal(dbus_interface=interface, signature='i')
@@ -240,6 +241,18 @@ class Service(Object):
         tags.sort()
 
         return tags
+
+    @method(dbus_interface=interface, in_signature='', out_signature='as')
+    def ListEqualizerProfiles(self):
+        return self.__player.get_profile_names()
+
+    @method(dbus_interface=interface, in_signature='', out_signature='s')
+    def GetEqualizerProfile(self):
+        return self.__player.profile
+
+    @method(dbus_interface=interface, in_signature='s', out_signature='')
+    def SetEqualizerProfile(self, profile_name):
+        self.__player.profile = profile_name
 
 if '__main__' == __name__:
     threads_init()

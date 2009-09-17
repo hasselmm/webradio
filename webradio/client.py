@@ -160,7 +160,15 @@ class Client(GObject):
     def quit(self):
         self.__service.Quit()
 
+    def get_equalizer_profiles(self):
+        return self.__service.ListEqualizerProfiles()
+    def __get_equalizer_profile(self):
+        return self.__service.GetEqualizerProfile()
+    def __set_equalizer_profile(self, value):
+        self.__service.SetEqualizerProfile(value)
+
     is_playing = property(fget=lambda self: self.__is_playing)
     current_channel = property(fget=lambda self: self.__current_channel)
     stream_tags = property(fget=lambda self: self.__stream_tags)
+    equalizer_profile = property(fget=__get_equalizer_profile, fset=__set_equalizer_profile)
 

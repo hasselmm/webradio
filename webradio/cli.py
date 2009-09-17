@@ -49,6 +49,19 @@ class CommandLineClient(object):
         print state
 
     @command
+    def equalizer(self, args):
+        '''Select equalizer profile'''
+
+        if 3 == len(args):
+            self.__client.equalizer_profile = args[2]
+
+        else:
+            profiles = self.__client.get_equalizer_profiles()
+            profiles = ' '.join(profiles)
+
+            print 'Supported profiles: %s' % profiles
+
+    @command
     def play(self, args):
         '''Play music from matching station'''
 
@@ -67,17 +80,17 @@ class CommandLineClient(object):
             self.__client.play(channels[0])
 
     @command
-    def pause(self, args=None):
+    def pause(self, args):
         '''Pause music player'''
         self.__client.pause()
 
     @command
-    def resume(self, args=None):
+    def resume(self, args):
         '''Resume music player'''
         self.__client.resume()
 
     @command
-    def tags(self, args=None):
+    def tags(self, args):
         '''Lists known tags'''
 
         self.__client.wait(Client.STATE_STATIONS_LOADED)
