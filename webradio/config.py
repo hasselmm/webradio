@@ -1,6 +1,8 @@
 from ConfigParser import SafeConfigParser
 from webradio.xdg import get_config_filename
 
+import os
+
 class Configuration(object):
     def __init__(self):
         self.__parser = SafeConfigParser()
@@ -17,7 +19,13 @@ class Configuration(object):
     def write(self, target=None):
         if target is None:
             target = self.filename
+
         if isinstance(target, str):
+            confdir = os.path.dirname(target)
+
+            if not os.path.isdir(confdir):
+                os.makedirs(os.path.dirname(target))
+
             target = file(target, 'w')
 
         self.__parser.write(target)
