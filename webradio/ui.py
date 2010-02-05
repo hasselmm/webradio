@@ -369,8 +369,10 @@ class MainWindow(gtk.Window):
         stream_tags_changed_cb(self.__client)
         state_changed_cb(self.__client)
 
+        tags = (self.__config.tags or '').strip()
+
         self.__filter_entry.grab_focus()
-        self.__filter_entry.set_text(self.__config.tags.strip() + ' ')
+        self.__filter_entry.set_text(tags + ' ')
         self.__filter_entry.set_position(-1)
 
         for station in self.__client.get_stations():
