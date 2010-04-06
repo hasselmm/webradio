@@ -20,9 +20,7 @@ setup(name='WebRadio',
           'Topic :: Multimedia :: Sound/Audio :: Players',
       ],
 
-      packages=['data', 'webradio'],
-      package_dir={'data': 'data'},
-      package_data={'data': ['stations']},
+      packages=['webradio'],
       scripts=['bin/webradio', 'bin/webradio-service'],
 
       data_files=[
