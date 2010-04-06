@@ -27,9 +27,12 @@ class Channel(object):
         self.__tags    = tags
         self.__streams = streams
 
+        aliases = station.aliases
+
         if self.__tags is None:
             path = urlparse.urlparse(uri)[2].split('/')
-            self.__tags = path[1:-1] + path[-1].split('.')[:-1]
+            self.__tags = [aliases.get(t, t) for t in
+                           path[1:-1] + path[-1].split('.')[:-1]]
         if self.__streams is None:
             self.__streams = []
 
@@ -78,6 +81,7 @@ class Station(object):
         self.__uri        = uri
         self.__stream_uri = None
         self.__channels   = channels if channels is not None else []
+        self.__aliases    = dict()
 
         self.__noise_filters = [
             re.compile(re.escape(self.title)),
@@ -107,13 +111,16 @@ class Station(object):
 
         return text
 
+    def add_alias(self, name, value):
+        self.__aliases[name] = value
+
     def _set_stream_uri(self, uri):
         self.__stream_uri = uri
 
     id         = property(fget=lambda self: self.__id)
     title      = property(fget=lambda self: self.__title)
     uri        = property(fget=lambda self: self.__uri)
-    stream_uri = property(fget=lambda self: self.__stream_uri,
-                          fset=_set_stream_uri)
+    stream_uri = property(fget=lambda self: self.__stream_uri, fset=_set_stream_uri)
     channels   = property(fget=lambda self: self.__channels)
+    aliases    = property(fget=lambda self: self.__aliases)
 

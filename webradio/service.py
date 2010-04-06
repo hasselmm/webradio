@@ -157,6 +157,12 @@ class Service(Object):
 
                     noise = parser.get(station_id, key)
                     station.add_noise_filter(noise)
+                for key in parser.options(station_id):
+                    if key.startswith('alias.'):
+                        name = key[len('alias.'):]
+                        value = parser.get(station_id, key)
+                        station.add_alias(name, value)
+                        continue
 
                 load_station_details(station)
                 self.StationAdded(station)
@@ -212,7 +218,6 @@ class Service(Object):
     @method(dbus_interface=interface, utf8_strings=True,
             in_signature='', out_signature='a{sv}')
     def GetStreamTags(self):
-        print self.__stream_tags
         return self.__stream_tags
 
     @method(dbus_interface=interface, utf8_strings=True, in_signature='as',
