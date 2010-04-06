@@ -13,7 +13,9 @@ from webradio.xdg       import get_cache_filename, get_config_filename
 from StringIO           import StringIO
 
 import gst
+import os.path
 import re
+import sys
 
 class Service(Object):
     name = 'de.taschenorakel.webradio'
@@ -80,17 +82,63 @@ class Service(Object):
                 for uri in pattern.findall(content):
                     if uri.startswith('/'):
                         uri = urljoin(station.uri, uri)
-                    if uri.startswith(station.uri):
+                    if station.accept_stream(uri):
                         pending_channels.append([station, uri])
 
+                print '%d stations found...' % len(pending_channels)
+
+            else:
+                print 'Bad response: %s %s' % (response.reason,
+                                               response.status)
+
+        def find_stations_filename():
+            filename = get_config_filename('stations')
+
+            if os.path.isfile(filename):
+                return filename
+
+            for libdir in sys.path:
+                prefix = os.path.commonprefix([__file__, libdir])
+
+                if not prefix or prefix != libdir:
+                    continue
+
+                dirname, basename = os.path.split(libdir)
+
+                if 'site-packages' == basename:
+                    prefix = os.path.join(dirname, '..', '..')
+                    filename = os.path.join(prefix, 'share', 'webradio', 'stations')
+
+                    if os.path.isfile(filename):
+                        return filename
+
+                for filename in [
+                        os.path.join(libdir, 'data', 'stations'),
+                        os.path.join(dirname, 'data', 'stations')]:
+                    if os.path.isfile(filename):
+                        return filename
+
+            return None
+
         def load_station_list():
+            filename = find_stations_filename()
+
+            if filename is None:
+                raise RuntimeError, 'Cannot find station list'
+
+            print 'reading stations from %r' % filename
+
             parser = SafeConfigParser()
-            parser.read(get_config_filename('stations'))
+            parser.read(filename)
 
             for station_id in parser.sections():
                 uri = parser.get(station_id, 'uri')
                 title = parser.get(station_id, 'title')
+                stream_uri = parser.get(station_id, 'streams')
                 station = Station(station_id, title, uri)
+
+                if stream_uri:
+                    station.stream_uri = stream_uri
 
                 i = 1
 

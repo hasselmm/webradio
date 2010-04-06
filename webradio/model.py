@@ -73,10 +73,11 @@ class Station(object):
     dbus_signature = '(sssa' + Channel.dbus_signature + ')'
 
     def __init__(self, id, title, uri, channels = None):
-        self.__id       = id
-        self.__title    = title
-        self.__uri      = uri
-        self.__channels = channels if channels is not None else []
+        self.__id         = id
+        self.__title      = title
+        self.__uri        = uri
+        self.__stream_uri = None
+        self.__channels   = channels if channels is not None else []
 
         self.__noise_filters = [
             re.compile(re.escape(self.title)),
@@ -89,6 +90,14 @@ class Station(object):
         yield self.uri
         yield self.channels
 
+    def accept_stream(self, uri):
+        if not uri.endswith('.pls'):
+            return False
+        if self.__stream_uri and uri.startswith(self.__stream_uri):
+            return True
+
+        return uri.startswith(self.uri)
+
     def add_noise_filter(self, pattern):
         self.__noise_filters.insert(-2, re.compile(pattern))
 
@@ -98,8 +107,13 @@ class Station(object):
 
         return text
 
-    id       = property(fget=lambda self: self.__id)
-    title    = property(fget=lambda self: self.__title)
-    uri      = property(fget=lambda self: self.__uri)
-    channels = property(fget=lambda self: self.__channels)
+    def _set_stream_uri(self, uri):
+        self.__stream_uri = uri
+
+    id         = property(fget=lambda self: self.__id)
+    title      = property(fget=lambda self: self.__title)
+    uri        = property(fget=lambda self: self.__uri)
+    stream_uri = property(fget=lambda self: self.__stream_uri,
+                          fset=_set_stream_uri)
+    channels   = property(fget=lambda self: self.__channels)
 
