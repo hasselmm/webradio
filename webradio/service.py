@@ -39,10 +39,16 @@ class Service(Object):
                 return True
 
             if gst.MESSAGE_TAG == message.type:
-                self.StreamTagsChanged(dict(message.structure))
+                valid_types = float, int, str, unicode
+
+                tags = [(k, v) for k, v
+                        in dict(message.structure).items()
+                        if isinstance(v, valid_types)]
+
+                self.StreamTagsChanged(dict(tags))
+
                 return True
 
-            #print message.src, message.type, message.structure and message.structure.to_string() or ''
             return True
 
         self.__data_stage = 0
