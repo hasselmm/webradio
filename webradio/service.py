@@ -2,7 +2,7 @@ from ConfigParser       import SafeConfigParser
 from dbus               import Interface, SessionBus
 from dbus.mainloop.glib import DBusGMainLoop
 from dbus.service       import BusName, Object, method, signal
-from glib               import MainLoop, idle_add
+from glib               import MainLoop, idle_add, source_remove, timeout_add_seconds
 from gtk.gdk            import threads_init
 from httplib2           import Http
 from threading          import Thread
@@ -16,6 +16,67 @@ import gst
 import os.path
 import re
 import sys
+
+class Favorites(object):
+    def __init__(self):
+        self.__filename = get_config_filename('favorites')
+        self.__parser = SafeConfigParser()
+        self.__parser.read(self.__filename)
+        self.__current_uri = None
+        self.__top_score = 0
+        self.__update_id = 0
+
+    def _update_cb(self):
+        score = self._get_score(self.__current_uri)
+        self._set_score(self.__current_uri, score + 1)
+
+        print (self.top_score,
+               self.get_absolute_score(self.__current_uri),
+               self.get_relative_score(self.__current_uri))
+
+    def set_state(self, playing, uri):
+        self.__current_uri = uri
+
+        if playing and not self.__update_id:
+            self.__update_id = timeout_add_seconds(300, self._update_cb)
+            self._update_cb()
+
+        elif not playing and self.__update_id:
+            source_remove(self.__update_id)
+            self.__update_id = 0
+
+    def _get_key(self, uri):
+        return 'Scoreboard', uri
+
+    def _get_score(self, uri):
+        key = self._get_key(uri)
+
+        if self.__parser.has_option(*key):
+            return self.__parser.getint(*key)
+
+        return 0
+
+    def _set_score(self, uri, score):
+        key = self._get_key(uri)
+
+        if not self.__parser.has_section(key[0]):
+            self.__parser.add_section(key[0])
+
+        self.__parser.set(*(key + (str(score), )))
+        self.__parser.write(file(self.__filename, 'w'))
+        self.__top_score = max(self.__top_score, score)
+
+    def get_relative_score(self, uri):
+        print self.__top_score
+
+        if self.__top_score > 0:
+            return (float(self._get_score(uri)) /
+                    float(self.__top_score))
+
+        return 0
+
+    top_score = property(fget=lambda self: self.__top_score)
+    get_absolute_score = _get_score
 
 class Service(Object):
     name = 'de.taschenorakel.webradio'
@@ -35,6 +96,7 @@ class Service(Object):
             if gst.MESSAGE_STATE_CHANGED == message.type:
                 if message.src == self.__player:
                     self.StateChanged(*self.GetState())
+                    self.__favorites.set_state(*self.GetState())
 
                 return True
 
@@ -55,6 +117,7 @@ class Service(Object):
         self.__player = Player()
         self.__player.get_bus().add_watch(player_message_cb)
         self.__httplib = Http(cache=get_cache_filename())
+        self.__favorites = Favorites()
         self.__stations = list()
         self.__stream_tags = dict()
 
@@ -97,8 +160,8 @@ class Service(Object):
                 print 'Bad response: %s %s' % (response.reason,
                                                response.status)
 
-        def find_stations_filename():
-            filename = get_config_filename('stations')
+        def find_config_file(basename):
+            filename = get_config_filename(basename)
 
             if os.path.isfile(filename):
                 return filename
@@ -109,25 +172,25 @@ class Service(Object):
                 if not prefix or prefix != libdir:
                     continue
 
-                dirname, basename = os.path.split(libdir)
+                libdir_parent, libdir_name = os.path.split(libdir)
 
-                if 'site-packages' == basename:
-                    prefix = os.path.join(dirname, '..', '..')
-                    filename = os.path.join(prefix, 'share', 'webradio', 'stations')
+                if 'site-packages' == libdir_name:
+                    prefix = os.path.join(libdir_parent, '..', '..')
+                    filename = os.path.join(prefix, 'share', 'webradio', basename)
 
                     if os.path.isfile(filename):
                         return filename
 
                 for filename in [
-                        os.path.join(libdir, 'data', 'stations'),
-                        os.path.join(dirname, 'data', 'stations')]:
+                        os.path.join(libdir, 'data', basename),
+                        os.path.join(libdir_parent, 'data', basename)]:
                     if os.path.isfile(filename):
                         return filename
 
             return None
 
         def load_station_list():
-            filename = find_stations_filename()
+            filename = find_config_file('stations')
 
             if filename is None:
                 raise RuntimeError, 'Cannot find station list'
