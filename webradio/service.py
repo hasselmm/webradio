@@ -131,9 +131,21 @@ class Service(Object):
 
         Thread(target=self.__load).start()
 
-    def __fetch(self, uri):
-        print 'fetching %s' % uri
+    def __fetch_from_cache(self, uri):
+        print 'fetching from cache %s' % uri
+        return self.__httplib.request(uri, headers={'cache-control': 'only-if-cached'})
+
+    def __fetch_from_web(self, uri):
+        print 'fetching from web %s' % uri
         return self.__httplib.request(uri)
+
+    def __fetch(self, uri):
+        response, content = self.__fetch_from_cache(uri)
+
+        if 504 == response.status:
+            response, content = self.__fetch_from_web(uri)
+
+        return response, content
 
     def __notify(self, summary, body=None, id=0, icon='rhythmbox',
                  app_name='webradio', actions=None, hints=None, timeout=-1):
