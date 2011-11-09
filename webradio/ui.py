@@ -2,6 +2,7 @@ from dbus.mainloop.glib import DBusGMainLoop
 from webradio.client    import Client
 from webradio.config    import Configuration
 from webradio.model     import Channel, Station
+from webradio.xdg       import get_config_filename
 
 import cairo
 import glib
@@ -170,6 +171,22 @@ class MainWindow(gtk.Window):
         channels.set_sort_column_id(0, gtk.SORT_ASCENDING)
 
         tag_completion = TagsCompletion(client.get_tags())
+        self.__current_title = None
+
+        def read_wishlist():
+            filename = get_config_filename('wishlist')
+            wishlist = []
+
+            try:
+                text = file(filename).read().strip()
+                wishlist = text and text.split('\n') or []
+
+            except IOError:
+                pass
+
+            return dict(zip(wishlist, range(len(wishlist))))
+
+        self.__wishlist = read_wishlist()
 
         def channel_added_cb(client, channel):
             tree_iter = channels.insert(-1, (channel, ))
@@ -196,12 +213,12 @@ class MainWindow(gtk.Window):
             tree_view.queue_draw()
 
         def stream_tags_changed_cb(client):
-            title = client.stream_tags.get('title')
-            org = client.stream_tags.get('organization')
+            self.__current_title = client.stream_tags.get('title').strip() or None
+            org = client.stream_tags.get('organization').strip() or None
             markup = []
 
-            if title:
-                markup.append('<b>%s</b>' % glib.markup_escape_text(title))
+            if self.__current_title:
+                markup.append('<b>%s</b>' % glib.markup_escape_text(self.__current_title))
             if org:
                 markup.append('<small>%s</small>' % glib.markup_escape_text(org))
 
@@ -213,6 +230,9 @@ class MainWindow(gtk.Window):
             else:
                 self.__stream_info.set_markup('')
                 self.__stream_info.hide()
+
+            self.__favorite_button.set_sensitive(bool(self.__current_title))
+            self.__favorite_button.set_active(self.__current_title in self.__wishlist)
 
         self.__client = client
         self.__client.connect('channel-added',       channel_added_cb)
@@ -246,7 +266,6 @@ class MainWindow(gtk.Window):
         def play_button_clicked_cb(button):
             if not button.get_active():
                 self.__client.pause()
-                print 'pause'
                 return
 
             model, tree_iter = tree_view.get_selection().get_selected()
@@ -255,16 +274,26 @@ class MainWindow(gtk.Window):
             if model and tree_iter:
                 channel, = model.get(tree_iter, 0)
 
-            print channel
-
             if channel is not None:
                 if channel == self.__client.current_channel:
                     self.__client.resume()
-                    print 'resume'
 
                 else:
                     self.__client.play(channel)
-                    print 'play'
+
+        def favorite_button_clicked_cb(button):
+            if not self.__current_title:
+                return
+
+            if button.get_active():
+                self.__wishlist[self.__current_title] = True
+
+            else:
+                self.__wishlist.pop(self.__current_title, False)
+
+            wishlist_text = '\n'.join(self.__wishlist.keys()) + '\n'
+            filename = get_config_filename('wishlist')
+            file(filename, 'w').write(wishlist_text)
 
         self.__play_button = gtk.RadioToolButton(None, gtk.STOCK_MEDIA_PLAY)
         self.__play_button.connect('clicked', play_button_clicked_cb)
@@ -273,6 +302,10 @@ class MainWindow(gtk.Window):
 
         self.__pause_button = gtk.RadioToolButton(self.__play_button, gtk.STOCK_MEDIA_PAUSE)
         toolbar.insert(self.__pause_button, -1)
+
+        self.__favorite_button = gtk.ToggleToolButton(gtk.STOCK_ABOUT)
+        self.__favorite_button.connect('clicked', favorite_button_clicked_cb)
+        toolbar.insert(self.__favorite_button, -1)
 
         item = gtk.SeparatorToolItem()
         item.set_expand(True)
